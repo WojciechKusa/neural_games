@@ -80,6 +80,9 @@ class Dinosaur(object):
             self.check_if_dino_is_alive()
             pygame.time.wait(200)
 
+
+        with open("results/dino_scores.txt", "a") as myfile:
+            myfile.write( "\n" + str(self.score) )
         print( self.score )
 
         self.game_exit() 
