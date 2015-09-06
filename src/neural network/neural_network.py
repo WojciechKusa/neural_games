@@ -1,7 +1,7 @@
-class neural_network(object):
-    """docstring for neural_network"""
+class NeuralNetwork(object):
+    """docstring for NeuralNetwork"""
     def __init__(self, arg):
-        super(neural_network, self).__init__()
+        super(NeuralNetwork, self).__init__()
         self.arg = arg
     
     

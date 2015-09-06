@@ -1,6 +1,9 @@
 import random
-import game.dinosaur
+from game.dinosaur import Dinosaur
+from game.player import Player
 
 
 
-Dinosaur()
+human_player = Player(0)
+
+Dinosaur(human_player)

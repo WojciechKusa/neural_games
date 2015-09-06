@@ -3,6 +3,8 @@ from pygame.locals import * # [QUIT, KEYDOWN,K_ESCAPE] etc
 from sys import exit  
 import numpy as np
 import random 
+from player import Player
+import os
 
 screen_size = (1200,500)  
 board_width = 12
@@ -14,9 +16,12 @@ sprite_height = 200
 cactus_probability = 0.12
 bird_probability = 0.05
 
+dir = os.path.dirname(__file__)
+
+
 class Dinosaur(object): 
 
-    def __init__(self): 
+    def __init__(self, player = Player(0)): 
         pygame.init() # init pygame library  
         flag = DOUBLEBUF # double buffer mode 
 
@@ -24,14 +29,16 @@ class Dinosaur(object):
 
         self.score = 0
 
+        self.player = player
+
         self.dino_is_jumping = False
         self.dino_is_alive = True
 
         self.gamestate = 1 # 1 - run, 2 - init screen (currently not implemented), 0 - exit
 
-        self.dino_sprite = pygame.image.load("images/dino.png") 
-        self.bird_sprite = pygame.image.load("images/bird.png") 
-        self.cactus_sprite = pygame.image.load("images/cactus.png")
+        self.dino_sprite = pygame.image.load(os.path.join(dir, "images/dino.png")) 
+        self.bird_sprite = pygame.image.load(os.path.join(dir, "images/bird.png")) 
+        self.cactus_sprite = pygame.image.load(os.path.join(dir, "images/cactus.png"))
 
         # self.surface.blit(self.dino_sprite, (10, 280))
 
@@ -67,12 +74,19 @@ class Dinosaur(object):
             self.surface = pygame.display.set_mode(screen_size) # clear screen
             self.draw_board()
 
-            for event in pygame.event.get(): 
-                if event.type==QUIT or (event.type==KEYDOWN and event.key==K_ESCAPE): 
-                    self.gamestate=0
+            if self.player.type == 0: # human
 
-                if (event.type==KEYDOWN and event.key==K_SPACE): 
-                    self.jump()
+                for event in pygame.event.get(): 
+                    if event.type==QUIT or (event.type==KEYDOWN and event.key==K_ESCAPE): 
+                        self.gamestate=0
+
+                    if (event.type==KEYDOWN and event.key==K_SPACE): 
+                        self.jump()
+
+            elif self.player.type == 1: # computer
+
+                self.player.make_move(self.board)
+
 
             pygame.display.flip()
 
@@ -81,8 +95,14 @@ class Dinosaur(object):
             pygame.time.wait(200)
 
 
-        with open("results/dino_scores.txt", "a") as myfile:
-            myfile.write( "\n" + str(self.score) )
+        if self.player.type == 0: # human
+            with open(os.path.join(dir, "results/dino_scores_human.txt"), "a") as myfile:
+                myfile.write( "\n" + str(self.score) )
+
+        if self.player.type == 1: # computer
+            with open(os.path.join(dir, "results/dino_scores_computer.txt"), "a") as myfile:
+                myfile.write( "\n" + str(self.score) )
+
         print( self.score )
 
         self.game_exit() 
