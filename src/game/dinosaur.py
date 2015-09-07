@@ -13,6 +13,8 @@ board_height = 2
 sprite_width = 100
 sprite_height = 100
 
+weights = [ 0.1, 0.5, 1, 0.5, 0.1 ]
+
 screen_size = (board_width * sprite_width, board_height * sprite_height)  
 
 cactus_probability = 0.12
@@ -62,8 +64,6 @@ class Dinosaur(object):
     def init_board(self):
         self.board = np.zeros((board_width, board_height))
 
-        self.board[0, board_height - 1] = 1 # dinosaur
-
     def draw_board(self):
 
         background = pygame.Surface(self.surface.get_size())
@@ -83,7 +83,6 @@ class Dinosaur(object):
             else:
                 self.surface.blit(self.bird_sprite, (x, y))
 
-
     def loop(self):
         self.init_board()
 
@@ -91,6 +90,17 @@ class Dinosaur(object):
 
             self.surface = pygame.display.set_mode(screen_size) # clear screen
             self.draw_board()
+
+            self.init_board()
+
+            # Prepare data for Neural Network
+
+            for i in range(len(self.objects)):
+                for j in range(5):
+                    index_x = int(round(self.objects[i][0])) + j - 2
+                    index_y = int(round(self.objects[i][1]))
+                    if index_x >= 0 and index_x < board_width:
+                        self.board[index_x][index_y] = self.board[index_x][index_y] + weights[j]
 
             if self.player.type == 0: # human
 
@@ -107,12 +117,12 @@ class Dinosaur(object):
 
 
             pygame.display.flip()
-            pygame.display.set_caption("%f" % (self.score))
+            pygame.display.set_caption("Score: %d" % (self.score))
 
             self.generate_next_board()
             self.check_if_dino_is_alive()
 
-            if self.score % 50 == 0:
+            if self.score % 100 == 0:
                 self.v_ox = self.v_ox * 1.1
                 self.dt_y = self.dt_y / 1.05
 
