@@ -14,6 +14,8 @@ sprite_width = 100
 sprite_height = 100
 
 weights = [ 0.1, 0.5, 1, 0.5, 0.1 ]
+objects_saved = 2
+objects_parameters = 3 # x_begin, x_end, y
 
 screen_size = (board_width * sprite_width, board_height * sprite_height)  
 
@@ -47,6 +49,7 @@ class Dinosaur(object):
         self.ground_sprite = pygame.image.load(os.path.join(dir, "images/ground.png"))
 
         self.objects = []   # [x, z]
+        self.archive = []   # Save users reactions
 
         self.v_ox = 2.5
         self.v_oy = 400
@@ -55,6 +58,8 @@ class Dinosaur(object):
         self.dt_y = 600
         self.framesSinceGeneration = 0 
 
+        self.saveAfterLanding = []
+        self.lastSavedScore = -1
 
         self.loop() # main loop 
 
@@ -62,7 +67,9 @@ class Dinosaur(object):
         exit() 
 
     def init_board(self):
-        self.board = np.zeros((board_width, board_height))
+        self.board = []
+        for i in range(board_height):
+            self.board.append([0] * board_width)
 
     def draw_board(self):
 
@@ -96,11 +103,13 @@ class Dinosaur(object):
             # Prepare data for Neural Network
 
             for i in range(len(self.objects)):
-                for j in range(5):
-                    index_x = int(round(self.objects[i][0])) + j - 2
-                    index_y = int(round(self.objects[i][1]))
+                index_y = int(self.objects[i][1])
+
+                for j in range(-2, 3):
+                    index_x = int(round(self.objects[i][0])) + j
+
                     if index_x >= 0 and index_x < board_width:
-                        self.board[index_x][index_y] = self.board[index_x][index_y] + weights[j]
+                        self.board[index_y][index_x] += weights[j + 2]
 
             if self.player.type == 0: # human
 
@@ -115,12 +124,15 @@ class Dinosaur(object):
 
                 self.player.make_move(self.board)
 
-
             pygame.display.flip()
             pygame.display.set_caption("Score: %d" % (self.score))
 
             self.generate_next_board()
             self.check_if_dino_is_alive()
+
+            if self.score % 50 == 0 and self.score != self.lastSavedScore:
+                self.archive.append(self.currentBoard1D(self.dino_y > 0.01))
+                self.lastSavedScore = self.score
 
             if self.score % 100 == 0:
                 self.v_ox = self.v_ox * 1.1
@@ -138,7 +150,14 @@ class Dinosaur(object):
                 myfile.write( "\n" + str(self.score) )
 
         print( self.score )
+                
+        if len(self.archive) > 0:
+            self.archive.pop()
 
+            with open(os.path.join(dir, "results/reactions.txt"), "a") as myfile:
+                for i in range(len(self.archive)):
+                    myfile.write(";".join(str(x) for x in self.archive[i]) + "\n")
+        
         self.game_exit() 
 
     def jump(self):
@@ -146,6 +165,9 @@ class Dinosaur(object):
             self.jumpStartTime = self.dt / self.dt_y
             self.dino_y = -self.g * self.jumpStartTime * self.jumpStartTime + self.v_oy * self.jumpStartTime  
             self.dino_y = self.dino_y / 50  
+            
+            if self.lastSavedScore != self.score:
+                self.saveAfterLanding = self.currentBoard1D(True)
 
     def check_if_dino_is_alive(self):
         if self.dino_is_alive == True:
@@ -172,6 +194,11 @@ class Dinosaur(object):
         if self.dino_y < 0:
             self.dino_y = 0
 
+            if len(self.saveAfterLanding) > 1:
+                self.archive.append(self.saveAfterLanding)
+                self.saveAfterLanding = []
+                self.lastSavedScore = self.score
+
         self.framesSinceGeneration = self.framesSinceGeneration + 1
 
         if self.framesSinceGeneration > 15:
@@ -189,6 +216,23 @@ class Dinosaur(object):
             if distance < 0.5:
                 self.dino_is_alive = False
 
+    def currentBoard1D(self, jumped):
+        jumping = 1 if (self.dino_y > 0.01 or jumped == True) else 0
+        #return [self.score] + self.board[0] + self.board[1] + [self.v_ox, jumping]
+        current = [15] * (objects_parameters * objects_saved + 2)
+
+        for i in range(len(self.objects)):
+            if i >= objects_saved:
+                continue
+
+            current[i * objects_parameters] = self.objects[i][0] - self.v_ox * 0.05
+            current[i * objects_parameters + 1] = self.objects[i][0] + self.v_ox * 0.05
+            current[i * objects_parameters + 2] = self.objects[i][1]
+
+        current[objects_parameters * objects_saved] = self.v_ox
+        current[objects_parameters * objects_saved + 1] = jumping
+
+        return current
 
 if __name__ == '__main__': 
     Dinosaur()
