@@ -5,6 +5,7 @@ import numpy as np
 import random 
 import math
 from player import Player
+from network import Network
 import os
 
 board_width = 10
@@ -14,20 +15,24 @@ sprite_width = 100
 sprite_height = 100
 
 weights = [ 0.1, 0.5, 1, 0.5, 0.1 ]
-objects_saved = 2
+objects_saved = 4
 objects_parameters = 3 # x_begin, x_end, y
+objects_ahead = 1
 
 screen_size = (board_width * sprite_width, board_height * sprite_height)  
 
-cactus_probability = 0.12
-bird_probability = 0.05
+cactus_probability = 0.16
+bird_probability = 0.025
+jump_probability = 0.15
+
+net = None
 
 dir = os.path.dirname(__file__)
 
 
 class Dinosaur(object): 
 
-    def __init__(self, player = Player(0)): 
+    def __init__(self, player = Player(1)): 
         pygame.init() # init pygame library  
         flag = DOUBLEBUF # double buffer mode 
 
@@ -51,7 +56,7 @@ class Dinosaur(object):
         self.objects = []   # [x, z]
         self.archive = []   # Save users reactions
 
-        self.v_ox = 2.5
+        self.v_ox = 3.5
         self.v_oy = 400
         self.g = 410
         self.dt = 50
@@ -122,7 +127,24 @@ class Dinosaur(object):
 
             elif self.player.type == 1: # computer
 
-                self.player.make_move(self.board)
+                # 
+                if len(self.objects) > objects_ahead:
+                    position = []
+
+                    for obj in range(objects_ahead):
+
+                        position.append(self.objects[obj][0] - self.v_ox * 0.05)
+                        position.append(self.objects[obj][0] + self.v_ox * 0.05)
+                        position.append(self.objects[obj][1])
+
+                    response = net.sim(position)
+
+                    if int(round(response[0][0])):
+                        self.jump()
+
+                #    if random.random() < jump_probability:
+                #        self.jump()
+                #self.player.make_move(self.board)
 
             pygame.display.flip()
             pygame.display.set_caption("Score: %d" % (self.score))
@@ -130,13 +152,13 @@ class Dinosaur(object):
             self.generate_next_board()
             self.check_if_dino_is_alive()
 
-            if self.score % 50 == 0 and self.score != self.lastSavedScore:
+            if self.score % 5 == 0 and self.score != self.lastSavedScore:
                 self.archive.append(self.currentBoard1D(self.dino_y > 0.01))
                 self.lastSavedScore = self.score
 
-            if self.score % 100 == 0:
-                self.v_ox = self.v_ox * 1.1
-                self.dt_y = self.dt_y / 1.05
+            #if self.score % 100 == 0:
+            #    self.v_ox = self.v_ox * 1.1
+            #    self.dt_y = self.dt_y / 1.05
 
             pygame.time.wait(self.dt)
 
@@ -201,7 +223,7 @@ class Dinosaur(object):
 
         self.framesSinceGeneration = self.framesSinceGeneration + 1
 
-        if self.framesSinceGeneration > 15:
+        if self.framesSinceGeneration > 12:
             if (cactus_probability > random.random()):
                 self.objects.append([11, 0])
                 self.framesSinceGeneration = 0
@@ -219,7 +241,7 @@ class Dinosaur(object):
     def currentBoard1D(self, jumped):
         jumping = 1 if (self.dino_y > 0.01 or jumped == True) else 0
         #return [self.score] + self.board[0] + self.board[1] + [self.v_ox, jumping]
-        current = [15] * (objects_parameters * objects_saved + 2)
+        current = [15] * (objects_parameters * objects_saved + 1)
 
         for i in range(len(self.objects)):
             if i >= objects_saved:
@@ -229,10 +251,13 @@ class Dinosaur(object):
             current[i * objects_parameters + 1] = self.objects[i][0] + self.v_ox * 0.05
             current[i * objects_parameters + 2] = self.objects[i][1]
 
-        current[objects_parameters * objects_saved] = self.v_ox
-        current[objects_parameters * objects_saved + 1] = jumping
+        #current[objects_parameters * objects_saved] = self.v_ox
+        current[objects_parameters * objects_saved] = jumping
 
         return current
 
 if __name__ == '__main__': 
+    net = Network("results/reactions2d.txt", objects_ahead)
+    net.train()
+
     Dinosaur()
