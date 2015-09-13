@@ -5,7 +5,6 @@ import numpy as np
 import random 
 import math
 from player import Player
-from network import Network
 import os
 
 board_width = 10
@@ -14,14 +13,13 @@ board_height = 2
 sprite_width = 100
 sprite_height = 100
 
-weights = [ 0.1, 0.5, 1, 0.5, 0.1 ]
 objects_saved = 4
 objects_parameters = 3 # x_begin, x_end, y
 objects_ahead = 1
 
-screen_size = (board_width * sprite_width, board_height * sprite_height)  
+write_to_files = False
 
-net = None
+screen_size = (board_width * sprite_width, board_height * sprite_height)  
 
 dir = os.path.dirname(__file__)
 
@@ -73,6 +71,8 @@ dino = {
 class Dinosaur(object): 
 
     def __init__(self, player): 
+        player.prepare("results/reactions.txt", objects_ahead)
+
         pygame.init() # init pygame library  
         flag = DOUBLEBUF # double buffer mode 
 
@@ -132,39 +132,29 @@ class Dinosaur(object):
     def loop(self):
         self.init_board()
 
-        while self.gamestate==1:
+        while self.gamestate == 1:
 
-            self.surface = pygame.display.set_mode(screen_size) # clear screen
+            self.surface = pygame.display.set_mode(screen_size) 
             self.draw_board()
 
             self.init_board()
 
-            # Prepare data for Neural Network
-            '''
-            for i in range(len(self.objects)):
-                index_y = int(self.objects[i][1])
+            for event in pygame.event.get(): 
+                if event.type==QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE): 
+                    self.gamestate=0
 
-                for j in range(-2, 3):
-                    index_x = int(round(self.objects[i][0])) + j
-
-                    if index_x >= 0 and index_x < board_width:
-                        self.board[index_y][index_x] += weights[j + 2]
-            '''
             if self.player.type == 0: # human
 
                 for event in pygame.event.get(): 
-                    if event.type==QUIT or (event.type==KEYDOWN and event.key==K_ESCAPE): 
-                        self.gamestate=0
 
-                    if (event.type==KEYDOWN and event.key==K_SPACE): 
+                    if (event.type == KEYDOWN and event.key == K_SPACE): 
                         self.jump()
 
-                    if (event.type==KEYDOWN and event.key==K_q):
+                    if (event.type == KEYDOWN and event.key == K_q):
                         self.big_jump()
 
             elif self.player.type == 1: # computer
 
-                # 
                 if len(self.objects) > objects_ahead:
                     position = []
 
@@ -176,23 +166,12 @@ class Dinosaur(object):
                         position.append(self.objects[obj][0] + obj_data['width'])
                         position.append(obj_data['y'])
 
-                    response = net.sim(position)
+                    response = self.player.make_move(position)
 
-                    print(response[0][0])
-
-                    if response[0][0] > 0.3 and response[0][0] <= 1:
+                    if response > 0.3 and response <= 1:
                         self.jump()
-                    elif int(round(response[0][0])) > 1:
+                    elif int(round(response)) > 1:
                         self.big_jump()
-
-                #    if random.random() < jump_probability:
-                #        self.jump()
-                #self.player.make_move(self.board)
-
-            elif self.player.type == 2: # computer - random
-
-                if random.random() < jump_probability:
-                    self.jump()
 
 
             pygame.display.flip()
@@ -201,7 +180,6 @@ class Dinosaur(object):
             self.generate_next_board()
             self.check_if_dino_is_alive()
 
-            
             if self.score % 15 == 0 and self.score != self.lastSavedScore:
                 jumping = 0
                 if (dino['y'] > 0.01 and self.dt_y == 400):
@@ -211,36 +189,27 @@ class Dinosaur(object):
 
                 self.archive.append(self.currentBoard1D(jumping))
                 self.lastSavedScore = self.score
-            
-            #if self.score % 100 == 0:
-            #    self.v_ox = self.v_ox * 1.1
-            #    self.dt_y = self.dt_y / 1.05
 
             pygame.time.wait(self.dt)
 
+        if write_to_files:
 
-        if self.player.type == 0: # human
-            with open(os.path.join(dir, "results/dino_scores_human.txt"), "a") as myfile:
-                myfile.write( "\n" + str(self.score) )
+            if self.player.type == 0: # human
+                with open(os.path.join(dir, "results/dino_scores_human.txt"), "a") as myfile:
+                    myfile.write( "\n" + str(self.score) )
 
-        if self.player.type == 1: # computer
-            with open(os.path.join(dir, "results/dino_scores_computer.txt"), "a") as myfile:
-                myfile.write( "\n" + str(self.score) )
-
-        print( self.score )
-                
-        if len(self.archive) > 0:
-            self.archive.pop()
+            if self.player.type == 1: # computer
+                with open(os.path.join(dir, "results/dino_scores_computer.txt"), "a") as myfile:
+                    myfile.write( "\n" + str(self.score) )
+                    
+            if len(self.archive) > 0:
+                self.archive.pop()
             
-            #if self.archive[-1][-1] == 0:
-            #    self.archive[-1][-1] = 1
-            #else:
-            #    self.archive[-1][-1] = 0
+                with open(os.path.join(dir, "results/reactions.txt"), "a") as myfile:
+                    for i in range(len(self.archive)):
+                        myfile.write(";".join(str(x) for x in self.archive[i]) + "\n")
 
-            #with open(os.path.join(dir, "results/reactions.txt"), "a") as myfile:
-            #    for i in range(len(self.archive)):
-            #        myfile.write(";".join(str(x) for x in self.archive[i]) + "\n")
-        
+        print('Final score: ' + str(self.score))
         self.game_exit() 
 
     def jump(self):
@@ -271,8 +240,6 @@ class Dinosaur(object):
             self.gamestate=0
 
     def generate_next_board(self):
-
-        # scroll board
         onBoard = []
 
         for i in range(len(self.objects)):
@@ -329,8 +296,7 @@ class Dinosaur(object):
         elif ((dino['y'] > 0.01 or jumped == 1) and self.dt_y == 600):
             jumping = 2
 
-        #return [self.score] + self.board[0] + self.board[1] + [self.v_ox, jumping]
-        current = [1200] * (objects_parameters * objects_saved + 1)
+        current = [board_width * 1.1] * (objects_parameters * objects_saved + 1)
 
         for i in range(len(self.objects)):
             if i >= objects_saved:
@@ -342,13 +308,9 @@ class Dinosaur(object):
             current[i * objects_parameters + 1] = self.objects[i][0] + obj['width']
             current[i * objects_parameters + 2] = obj['y']
 
-        #current[objects_parameters * objects_saved] = self.v_ox
         current[objects_parameters * objects_saved] = jumping
 
         return current
 
 if __name__ == '__main__': 
-    net = Network("results/reactions.txt", objects_ahead)
-    net.train()
-
     Dinosaur(Player(1))
