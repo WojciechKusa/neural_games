@@ -13,7 +13,6 @@ class Network(object):
 		self.target = []
 		self.ahead = ahead
 		self.net = None
-		self.error = 0
 
 		input = []
 		output = []
@@ -48,21 +47,12 @@ class Network(object):
 			if int(round(S[i][0])) != self.target[i]:
 				errors += 1
 
-			#print(str(int(round(S[i][0]))) + '=>' + str(self.target[i]))
-
-		print(errors/count)
+		print('Learning error: ' + str(round((errors / count) * 100)) + '%')
 		
 
 	def sim(self, board):
-
 		return self.net.sim(board)
-
-	def getError(self):
-		return self.error
 
 if __name__ == '__main__':
 	net = Network("results/reactions.txt", 1)
 	net.train()
-
-	#print(str(net.sim([7.25, 7.75, 1, 15, 15, 0])))
-	#print(str(net.getError()))
