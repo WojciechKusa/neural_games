@@ -35,7 +35,7 @@ class Network(object):
 
 	def train(self):
 
-		self.net = pyrb.train_ols(self.data, self.target, 0.00001, 0.6, verbose=True)
+		self.net = pyrb.train_ols(self.data, self.target, 10e-8, 0.8, verbose=True)
 		S = self.net.sim(self.data)
 
 		errors = 0
@@ -47,7 +47,7 @@ class Network(object):
 			if int(round(S[i][0])) != self.target[i]:
 				errors += 1
 
-		print('Learning error: ' + str(round((errors / count) * 100)) + '%')
+		#print('Learning error: ' + str(round((errors / count) * 100)) + '%')
 		
 
 	def sim(self, board):
