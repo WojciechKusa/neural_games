@@ -18,8 +18,11 @@ objects_parameters = 3 # x_begin, x_end, y
 objects_ahead = 1
 
 write_to_files = False
+graphic_mode = 0
 
 screen_size = (board_width * sprite_width, board_height * sprite_height)  
+
+# fuzzification = 1. / 1.    
 
 dir = os.path.dirname(__file__)
 
@@ -70,13 +73,14 @@ dino = {
 
 class Dinosaur(object): 
 
-    def __init__(self, player): 
+    def __init__(self, player, fuzzification): 
         player.prepare("results/reactions.txt", objects_ahead)
+        self.surface = None
 
-        pygame.init() # init pygame library  
-        flag = DOUBLEBUF # double buffer mode 
-
-        self.surface = pygame.display.set_mode(screen_size, flag) 
+        if graphic_mode:
+            pygame.init() # init pygame library  
+            flag = DOUBLEBUF # double buffer mode 
+            self.surface = pygame.display.set_mode(screen_size, flag) 
 
         self.score = 0
 
@@ -96,6 +100,7 @@ class Dinosaur(object):
         self.dt = 50
         self.dt_y = 600
         self.framesSinceGeneration = 0 
+        self.fuzzification = fuzzification
 
         self.saveAfterLanding = []
         self.lastSavedScore = -1
@@ -134,16 +139,18 @@ class Dinosaur(object):
 
         while self.gamestate == 1:
 
-            self.surface = pygame.display.set_mode(screen_size) 
-            self.draw_board()
+            if graphic_mode:
+                self.surface = pygame.display.set_mode(screen_size) 
+                self.draw_board()
 
             self.init_board()
 
-            for event in pygame.event.get(): 
-                if event.type==QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE): 
-                    self.gamestate=0
+            if graphic_mode:
+                for event in pygame.event.get(): 
+                    if event.type==QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE): 
+                        self.gamestate=0
 
-            if self.player.type == 0: # human
+            if self.player.type == 0 and graphic_mode: # human
 
                 for event in pygame.event.get(): 
 
@@ -162,8 +169,8 @@ class Dinosaur(object):
 
                         obj_data = objects_types[self.objects[obj][1]]
 
-                        position.append(self.objects[obj][0])
-                        position.append(self.objects[obj][0] + obj_data['width'])
+                        position.append(self.objects[obj][0] + (random.random() - 0.5) * self.fuzzification * obj_data['width'])
+                        position.append(self.objects[obj][0] + obj_data['width'] + (random.random() - 0.5) * self.fuzzification * obj_data['width'])
                         position.append(obj_data['y'])
 
                     response = self.player.make_move(position)
@@ -173,9 +180,9 @@ class Dinosaur(object):
                     elif int(round(response)) > 1:
                         self.big_jump()
 
-
-            pygame.display.flip()
-            pygame.display.set_caption("Score: %d" % (self.score))
+            if graphic_mode:
+                pygame.display.flip()
+                pygame.display.set_caption("Score: %d" % (self.score))
 
             self.generate_next_board()
             self.check_if_dino_is_alive()
@@ -190,7 +197,8 @@ class Dinosaur(object):
                 self.archive.append(self.currentBoard1D(jumping))
                 self.lastSavedScore = self.score
 
-            pygame.time.wait(self.dt)
+            if graphic_mode:
+                pygame.time.wait(int(self.dt / 10))
 
         if write_to_files:
 
@@ -205,12 +213,13 @@ class Dinosaur(object):
             if len(self.archive) > 0:
                 self.archive.pop()
             
-                with open(os.path.join(dir, "results/reactions.txt"), "a") as myfile:
+                with open(os.path.join(dir, "results/2objects.txt"), "a") as myfile:
                     for i in range(len(self.archive)):
                         myfile.write(";".join(str(x) for x in self.archive[i]) + "\n")
 
-        print('Final score: ' + str(self.score))
-        self.game_exit() 
+        #print('Final score: ' + str(self.score))
+        if graphic_mode:
+            self.game_exit() 
 
     def jump(self):
         if dino['y'] < 0.01:
@@ -312,5 +321,13 @@ class Dinosaur(object):
 
         return current
 
-if __name__ == '__main__': 
-    Dinosaur(Player(1))
+    def getScore(self):
+        return self.score
+
+if __name__ == '__main__':
+    for i in range(100): 
+        score = 0
+        for j in range(10):
+            score += Dinosaur(Player(1), 1.0 / (i + 1)).getScore()
+            
+        print(str(1.0 / (i + 1)) + ': ' + str(score / 10))
